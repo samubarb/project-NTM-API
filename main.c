@@ -14,7 +14,6 @@
 #define RUN "run\n"
 
 #define EQUALS 0
-#define FIRST_ARG 1
 
 #define TAB '\t'
 #define NEWLINE '\n'
