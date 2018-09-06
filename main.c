@@ -8,13 +8,19 @@
 #define  RIGHT 'R'
 #define STOP 'S'
 
-#define TR "tr"
-#define ACC "acc"
-#define MAX "max"
-#define RUN "run"
+#define TR "tr\n"
+#define ACC "acc\n"
+#define MAX "max\n"
+#define RUN "run\n"
 
 #define EQUALS 0
 #define FIRST_ARG 1
+
+#define TAB '\t'
+#define NEWLINE '\n'
+#define EOL '\0'
+#define SPACE ' '
+#define MAX_LINE_SIZE 160
 
 /* STRUCTS & TYPEDEFS */
 typedef struct NODE node;
@@ -55,15 +61,41 @@ enum input_state inputManager(char * input);
 /* MAIN*/
 
 int main (int argc, char *argv[]) {
-
-    int i; // indxes
     enum input_state state;
+    char line[MAX_LINE_SIZE];
 
-    for (i = FIRST_ARG; i < argc; i++) {
-        state = inputManager(argv[i]);
-        printf("State: %s\n", state == Tr ? "Transition" : state == Acc ? "Acceptance" : state == Max? "Max" : state == Run ? "Run" : "Data");
+    while (fgets(line, MAX_LINE_SIZE, stdin) != NULL) {
+        state = inputManager(line);
+
+        printf("Line: %s ", line);
+        printf("State: ");
+
+        switch (state) {
+            case Tr:
+                printf("Transition");
+                break;
+
+            case Acc:
+                printf("Acceptance");
+                break;
+
+            case Max:
+                printf("Max");
+                break;
+
+            case Run:
+                printf("Run");
+                break;
+
+            case Data:
+                printf("Data");
+        }
+
+        printf("\n");
     }
 }
+
+
 
 /* FUNCTIONS & PROCEDURES */
 
