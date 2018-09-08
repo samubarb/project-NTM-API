@@ -14,6 +14,7 @@
 #define RUN "run\n"
 
 #define EQUALS 0
+#define TRANSITION_LENGTH 5
 
 #define TAB '\t'
 #define NEWLINE '\n'
@@ -65,13 +66,14 @@ enum manager_state {Start, Building_TM, Acceptance_state, Limit, Steady, Running
 /* PROTOTYPES */
 
 enum input_state inputParser(char * input);
-void printTest(char* line);
+void printTest(char *line);
 enum manager_state nextState(enum manager_state actualState, enum input_state input);
-
+char * removeWhiteSpaces(char * input);
 // TESTS
 char * inputToString(enum input_state input);
 char * stateToString(enum manager_state state);
 void inputManagerTest(enum manager_state state, enum input_state input);
+void removeSpacesTest(char *line);
 
 
 
@@ -81,6 +83,7 @@ void inputManagerTest(enum manager_state state, enum input_state input);
 int main (int argc, char *argv[]) {
     enum input_state inputState;
     enum manager_state FSM;
+    char * cleanLine;
 
     char line[MAX_LINE_SIZE];
 
@@ -88,6 +91,8 @@ int main (int argc, char *argv[]) {
 
     while (fgets(line, MAX_LINE_SIZE, stdin) != NULL) {
         inputState = inputParser(line);
+        if (inputState == Data)
+            removeSpacesTest(line);
         inputManagerTest(FSM, inputState);
         FSM = nextState(FSM, inputState);
 
@@ -226,6 +231,13 @@ void inputParserTest(char* line) {
     }
 
     printf("\n");
+}
+
+void removeSpacesTest(char *line) {
+    char *cleanLine;
+
+    cleanLine = removeWhiteSpaces(line);
+    printf("Clean line: %5s\n", cleanLine);
 }
 
 char * inputToString(enum input_state input) {
