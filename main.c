@@ -154,14 +154,37 @@ enum manager_state nextState(enum manager_state actualState, enum input_state in
             break;
 
         case Exit:
-            exit(0);
+            return Exit;
+
+        case ERROR:
+            return ERROR;
     }
 
     return ERROR;
 }
 
-char inputManager( ) { // Finite State Machine that switch between the Turing machine building and running
+char * removeWhiteSpaces(char * input) {
+    int i, j;
+    size_t len = strlen(input);
+    char output[len];
+    char *ret;
 
+    j = 0;
+    for (i = 0; i < len; i++) {
+        if (input[i] != SPACE) {
+            output[j] = input[i];
+            j++;
+        }
+    }
+
+    j--;
+
+    ret = (char *) malloc(sizeof(char) * j);
+
+    for (i = 0; i < j; i++)
+        ret[i] = output[i];
+
+    return ret;
 }
 
 
@@ -246,7 +269,8 @@ char * stateToString(enum manager_state state) {
 
         case Exit:
             return "Exit";
-    }
 
-    return "ERROR";
+        case ERROR:
+            return "ERROR";
+    }
 }
