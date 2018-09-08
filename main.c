@@ -21,7 +21,9 @@
 #define NEWLINE '\n'
 #define EOL '\0'
 #define SPACE ' '
+
 #define MAX_LINE_SIZE 160
+#define MAX_STATES_SIZE 50
 
 
 
@@ -78,6 +80,7 @@ ptrState getHead (ptrTransition t);
 ptrTransition getNext (ptrTransition t);
 ptrTransition newTransitionVoid();
 ptrTransition newTransition(ptrState head, char read, char write, char move);
+ptrState turingMachineBuilder(ptrState stateArray[], unsigned  int *stateNum, unsigned int tail, unsigned int head, char read, char write, char move);
 
 // TESTS
 char *inputToString (enum input_state input);
@@ -114,7 +117,20 @@ int main (int argc, char *argv[])
 
 /* FUNCTIONS & PROCEDURES */
 
+ptrState turingMachineBuilder(ptrState stateArray[], unsigned  int *stateNum, unsigned int tail, unsigned int head, char read, char write, char move) {
+    ptrState state;
+    ptrTransition transition;
 
+    nullOK(stateNum);
+    if (*stateNum < tail)
+        *stateNum = tail;
+    if (*stateNum < head)
+        *stateNum = head;
+    //if (*stateNum >= MAX_STATES_SIZE) //add a check for maximum array size, then realloc
+
+
+    return state;
+}
 
 enum input_state inputParser (char *input)
 {
