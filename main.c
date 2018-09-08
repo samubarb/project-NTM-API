@@ -46,12 +46,13 @@ struct NODE {
 };
 
 struct NODE_LIST_ELEMENT {
-    node ciao;
+    node this;
     node_ptr prev;
     node_ptr next;
 };
 
 enum input_state {Tr, Acc, Max, Run, Data}; // Tr: transitions, Acc: acceptance
+enum manager_state {Start, Building_TM, Acceptance_state, Limit, Steady, Running, Exit, ERROR};
 
 
 
@@ -61,12 +62,16 @@ enum input_state {Tr, Acc, Max, Run, Data}; // Tr: transitions, Acc: acceptance
 
 
 
-
 /* PROTOTYPES */
 
 enum input_state inputParser(char * input);
 void printTest(char* line);
+enum manager_state nextState(enum manager_state actualState, enum input_state input);
 
+// TESTS
+char * inputToString(enum input_state input);
+char * stateToString(enum manager_state state);
+void inputManagerTest(enum manager_state state, enum input_state input);
 
 
 
@@ -74,12 +79,17 @@ void printTest(char* line);
 /* MAIN*/
 
 int main (int argc, char *argv[]) {
-    enum input_state state;
+    enum input_state inputState;
+    enum manager_state FSM;
+
     char line[MAX_LINE_SIZE];
 
+    FSM = Start; // set the input manager in the initial state
+
     while (fgets(line, MAX_LINE_SIZE, stdin) != NULL) {
-        state = inputParser(line);
-        printTest(line);
+        inputState = inputParser(line);
+        inputManagerTest(FSM, inputState);
+        FSM = nextState(FSM, inputState);
 
     }
 }
@@ -104,7 +114,68 @@ enum input_state inputParser(char * input) {
     return Data;
 }
 
-void printTest(char* line) {
+enum manager_state nextState(enum manager_state actualState, enum input_state input) {
+
+    switch (actualState) {
+        case Start:
+            if (input == Tr)
+                return Building_TM;
+            break;
+
+        case Building_TM:
+            if (input == Acc)
+                return Acceptance_state;
+            if (input == Data)
+                return actualState;
+            break;
+
+        case Acceptance_state:
+            if (input == Max)
+                return Limit;
+            if (input == Data)
+                return actualState;
+            break;
+
+        case Limit:
+            if (input == Data)
+                return Steady;
+            break;
+
+        case Steady:
+            if (input == Run)
+                return Running;
+            break;
+
+        case Running:
+            if (input == Data)
+                return actualState;
+            if (input == EOF)
+                return Exit;
+            break;
+
+        case Exit:
+            exit(0);
+    }
+
+    return ERROR;
+}
+
+char inputManager( ) { // Finite State Machine that switch between the Turing machine building and running
+
+}
+
+
+
+/* TESTS */
+
+void inputManagerTest(enum manager_state state, enum input_state input) {
+    printf ("Actual state: %s\n", stateToString(state));
+    printf ("Input: %s\n", inputToString(input));
+    printf ("Next state: %s\n", stateToString(nextState(state, input)));
+    printf ("\n");
+}
+
+void inputParserTest(char* line) {
     enum input_state state = inputParser(line);
 
     printf("Line: %s ", line);
@@ -134,4 +205,48 @@ void printTest(char* line) {
     printf("\n");
 }
 
+char * inputToString(enum input_state input) {
+    switch (input) {
+        case Tr:
+            return "Transition";
 
+        case Acc:
+            return "Acceptance";
+
+        case Max:
+            return "Max";
+
+        case Run:
+            return "Run";
+
+        case Data:
+            return "Data";
+    }
+}
+
+char * stateToString(enum manager_state state) {
+    switch (state) {
+        case Start:
+            return "Start";
+
+        case Building_TM:
+            return "Building TM";
+
+        case Acceptance_state:
+            return "Acceptance state";
+
+        case Limit:
+            return "Limit";
+
+        case Steady:
+            return "Steady";
+
+        case Running:
+            return "Running";
+
+        case Exit:
+            return "Exit";
+    }
+
+    return "ERROR";
+}
