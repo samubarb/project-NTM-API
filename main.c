@@ -21,7 +21,11 @@
 #define SPACE ' '
 #define MAX_LINE_SIZE 160
 
+
+
+
 /* STRUCTS & TYPEDEFS */
+
 typedef struct NODE node;
 typedef struct NODE_LIST_ELEMENT node_list_element;
 typedef struct TRANSITION transition;
@@ -50,10 +54,20 @@ struct NODE_LIST_ELEMENT {
 enum input_state {Tr, Acc, Max, Run, Data}; // Tr: transitions, Acc: acceptance
 
 
+
+
+
 /* GLOBAL VARIABLES & CONSTANTS */
 
+
+
+
 /* PROTOTYPES */
+
 enum input_state inputManager(char * input);
+void printTest(char* line, enum input_state state);
+
+
 
 
 
@@ -65,32 +79,8 @@ int main (int argc, char *argv[]) {
 
     while (fgets(line, MAX_LINE_SIZE, stdin) != NULL) {
         state = inputManager(line);
+        printTest(line, state);
 
-        printf("Line: %s ", line);
-        printf("State: ");
-
-        switch (state) {
-            case Tr:
-                printf("Transition");
-                break;
-
-            case Acc:
-                printf("Acceptance");
-                break;
-
-            case Max:
-                printf("Max");
-                break;
-
-            case Run:
-                printf("Run");
-                break;
-
-            case Data:
-                printf("Data");
-        }
-
-        printf("\n");
     }
 }
 
@@ -112,4 +102,32 @@ enum input_state inputManager(char * input) {
         return Run;
 
     return Data;
+}
+
+void printTest(char* line, enum input_state state) {
+    printf("Line: %s ", line);
+    printf("State: ");
+
+    switch (state) {
+        case Tr:
+            printf("Transition");
+            break;
+
+        case Acc:
+            printf("Acceptance");
+            break;
+
+        case Max:
+            printf("Max");
+            break;
+
+        case Run:
+            printf("Run");
+            break;
+
+        case Data:
+            printf("Data");
+    }
+
+    printf("\n");
 }
