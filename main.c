@@ -15,6 +15,7 @@
 
 #define EQUALS 0
 #define TRANSITION_LENGTH 5
+#define UNASSIGNED '\n'
 
 #define TAB '\t'
 #define NEWLINE '\n'
@@ -43,7 +44,8 @@ struct TRANSITION {
 
 struct STATE {
 	unsigned int state_number;
-	ptrTransition children_list;
+    ptrState next;
+    ptrTransition children_list;
 };
 
 
@@ -74,6 +76,9 @@ char getWrite (ptrTransition t);
 char getMove (ptrTransition t);
 ptrState getHead (ptrTransition t);
 ptrTransition getNext (ptrTransition t);
+ptrTransition newTransitionVoid();
+ptrTransition newTransition(ptrState head, char read, char write, char move);
+
 // TESTS
 char *inputToString (enum input_state input);
 char *stateToString (enum manager_state state);
@@ -108,6 +113,8 @@ int main (int argc, char *argv[])
 
 
 /* FUNCTIONS & PROCEDURES */
+
+
 
 enum input_state inputParser (char *input)
 {
@@ -220,6 +227,7 @@ ptrState newStateVoid()
 {
 	ptrState ret = (ptrState) malloc (sizeof (State));
 	mallocOK (ret);
+	ret->next = NULL;
 	ret->children_list = NULL;
 	return ret;
 }
@@ -229,6 +237,23 @@ ptrState newState (unsigned int state_number)
 	ptrState ret = newStateVoid();
 	ret->state_number = state_number;
 	return ret;
+}
+
+ptrTransition newTransitionVoid() {
+    ptrTransition ret = malloc(sizeof(Transition));
+    mallocOK(ret);
+    ret->next = NULL;
+    ret->head = NULL;
+    return ret;
+}
+
+ptrTransition newTransition(ptrState head, char read, char write, char move) {
+    ptrTransition ret = newTransitionVoid();
+    ret->head = head;
+    ret->read = read;
+    ret->write = write;
+    ret->move = move;
+    return ret;
 }
 
 unsigned int getStateNumber (ptrState s)
