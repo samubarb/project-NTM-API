@@ -105,7 +105,7 @@ enum input_state inputParser(char * input) {
 }
 
 void printTest(char* line) {
-    enum input_state state = inputManager(line);
+    enum input_state state = inputParser(line);
 
     printf("Line: %s ", line);
     printf("State: ");
