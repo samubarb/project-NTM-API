@@ -64,8 +64,8 @@ enum input_state {Tr, Acc, Max, Run, Data}; // Tr: transitions, Acc: acceptance
 
 /* PROTOTYPES */
 
-enum input_state inputManager(char * input);
-void printTest(char* line, enum input_state state);
+enum input_state inputParser(char * input);
+void printTest(char* line);
 
 
 
@@ -78,8 +78,8 @@ int main (int argc, char *argv[]) {
     char line[MAX_LINE_SIZE];
 
     while (fgets(line, MAX_LINE_SIZE, stdin) != NULL) {
-        state = inputManager(line);
-        printTest(line, state);
+        state = inputParser(line);
+        printTest(line);
 
     }
 }
@@ -88,7 +88,7 @@ int main (int argc, char *argv[]) {
 
 /* FUNCTIONS & PROCEDURES */
 
-enum input_state inputManager(char * input) {
+enum input_state inputParser(char * input) {
     if (EQUALS == strcmp(input, TR))
         return Tr;
 
@@ -104,7 +104,9 @@ enum input_state inputManager(char * input) {
     return Data;
 }
 
-void printTest(char* line, enum input_state state) {
+void printTest(char* line) {
+    enum input_state state = inputManager(line);
+
     printf("Line: %s ", line);
     printf("State: ");
 
@@ -131,3 +133,5 @@ void printTest(char* line, enum input_state state) {
 
     printf("\n");
 }
+
+
