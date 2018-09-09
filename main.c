@@ -80,7 +80,7 @@ ptrState getHead (ptrTransition t);
 ptrTransition getNext (ptrTransition t);
 ptrTransition newTransitionVoid();
 ptrTransition newTransition(ptrState head, char read, char write, char move);
-ptrState turingMachineBuilder(ptrState stateArray[], unsigned  int *stateNum, unsigned int tail, unsigned int head, char read, char write, char move);
+ptrState turingMachineBuilder(ptrState stateArray[], unsigned  int *stateNum, unsigned int *maxStateFactor, unsigned int tail, unsigned int head, char read, char write, char move);
 
 // TESTS
 char *inputToString (enum input_state input);
@@ -99,7 +99,7 @@ int main (int argc, char *argv[])
 	enum manager_state FSM;
 	char *cleanLine;
 	
-	char line[MAX_LINE_SIZE];
+	char * line = (char *) malloc(sizeof(char) * MAX_LINE_SIZE); // prepare input line
 	
 	FSM = Start; // set the input manager in the initial state
 	
@@ -117,7 +117,7 @@ int main (int argc, char *argv[])
 
 /* FUNCTIONS & PROCEDURES */
 
-ptrState turingMachineBuilder(ptrState stateArray[], unsigned  int *stateNum, unsigned int tail, unsigned int head, char read, char write, char move) {
+ptrState turingMachineBuilder(ptrState stateArray[], unsigned int *stateNum, unsigned int *maxStateFactor, unsigned int tail, unsigned int head, char read, char write, char move) {
     ptrState state;
     ptrTransition transition;
 
@@ -126,7 +126,11 @@ ptrState turingMachineBuilder(ptrState stateArray[], unsigned  int *stateNum, un
         *stateNum = tail;
     if (*stateNum < head)
         *stateNum = head;
-    //if (*stateNum >= MAX_STATES_SIZE) //add a check for maximum array size, then realloc
+    if (*stateNum >= MAX_STATES_SIZE * (*maxStateFactor)) {//add a check for maximum array size, then realloc
+        *maxStateFactor = (*stateNum / MAX_STATES_SIZE) + 1;
+        stateArray = (ptrState *) realloc(stateArray,
+                                          sizeof(ptrState) * (*maxStateFactor) * MAX_STATES_SIZE);
+    }
 
 
     return state;
