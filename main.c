@@ -80,7 +80,8 @@ ptrState getHead (ptrTransition t);
 ptrTransition getNext (ptrTransition t);
 ptrTransition newTransitionVoid();
 ptrTransition newTransition(ptrState head, char read, char write, char move);
-ptrState turingMachineBuilder(ptrState stateArray[], unsigned  int *stateNum, unsigned int *maxStateFactor, unsigned int tail, unsigned int head, char read, char write, char move);
+ptrTransition addTransition(ptrState tail, ptrState head, char read, char write, char move);
+ptrState turingMachineBuilder(ptrState stateList, unsigned int tail, unsigned int head, char read, char write, char move);
 
 // TESTS
 char *inputToString (enum input_state input);
@@ -117,23 +118,31 @@ int main (int argc, char *argv[])
 
 /* FUNCTIONS & PROCEDURES */
 
-ptrState turingMachineBuilder(ptrState stateArray[], unsigned int *stateNum, unsigned int *maxStateFactor, unsigned int tail, unsigned int head, char read, char write, char move) {
-    ptrState state;
-    ptrTransition transition;
+ptrState turingMachineBuilder(ptrState stateList, unsigned int tail, unsigned int head, char read, char write, char move) {
+    /*
+     * to check if the state is yet present so far, in case utilize the existing one.
+     */
+    ptrState tailState = newState(tail);
+    ptrState  headState = newState(head);
+    ptrTransition transition = newTransition(headState, read, write, move);
 
-    nullOK(stateNum);
-    if (*stateNum < tail)
+
+    //nullOK(stateNum);
+    /*if (*stateNum < tail)
         *stateNum = tail;
     if (*stateNum < head)
         *stateNum = head;
-    if (*stateNum >= MAX_STATES_SIZE * (*maxStateFactor)) {//add a check for maximum array size, then realloc
+    if (*stateNum >= MAX_STATES_SIZE * (*maxStateFactor)) { //add a check for maximum array size, then realloc()
         *maxStateFactor = (*stateNum / MAX_STATES_SIZE) + 1;
         stateArray = (ptrState *) realloc(stateArray,
                                           sizeof(ptrState) * (*maxStateFactor) * MAX_STATES_SIZE);
-    }
+    }*/
 
 
-    return state;
+
+
+
+    return stateList;
 }
 
 enum input_state inputParser (char *input)
@@ -274,6 +283,66 @@ ptrTransition newTransition(ptrState head, char read, char write, char move) {
     ret->write = write;
     ret->move = move;
     return ret;
+}
+
+ptrTransition addTransition(ptrState tail, ptrState head, char read, char write, char move) {
+    ptrTransition cursor = tail->children_list;
+    if (cursor == NULL) {
+        cursor = newTransition(head, read, write, move);
+        return cursor;
+    }
+
+    while (cursor->next != NULL)
+        cursor = cursor->next;
+
+    cursor->next = newTransition(head, read, write, move);
+    return tail->children_list;
+}
+
+ptrState getStatePtr(ptrState list, unsigned int number) {
+    if (list == NULL)
+        return NULL;
+
+    while (list != NULL)
+        if (list->state_number == number)
+            return list;
+        else list = list->next;
+
+    return NULL;
+}
+
+ptrState addStateOrdered(ptrState list, ptrState state) {
+    ptrState head, aux;
+
+    if (list == NULL) {
+        list = state;
+        return list;
+    }
+
+    if (list->state_number > state->state_number) {
+        state->next = list;
+        return state;
+    }
+
+    if (list->next == NULL) {
+        list->next = state;
+        return list;
+    }
+
+    head = list;
+
+    while (list->next != NULL) {
+        if (list->next->state_number > state->state_number) {
+            aux = list->next;
+            list->next = state;
+            state->next = aux;
+            return head;
+        }
+        list = list->next;
+    }
+
+    list->next = state;
+    return head;
 }
 
 unsigned int getStateNumber (ptrState s)
