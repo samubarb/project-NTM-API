@@ -82,6 +82,9 @@ ptrTransition newTransitionVoid();
 ptrTransition newTransition(ptrState head, char read, char write, char move);
 ptrTransition addTransition(ptrState tail, ptrState head, char read, char write, char move);
 ptrState turingMachineBuilder(ptrState stateList, unsigned int tail, unsigned int head, char read, char write, char move);
+ptrState getStatePtr(ptrState list, unsigned int number);
+ptrState addStateOrdered(ptrState list, ptrState state);
+
 
 // TESTS
 char *inputToString (enum input_state input);
@@ -119,28 +122,21 @@ int main (int argc, char *argv[])
 /* FUNCTIONS & PROCEDURES */
 
 ptrState turingMachineBuilder(ptrState stateList, unsigned int tail, unsigned int head, char read, char write, char move) {
-    /*
-     * to check if the state is yet present so far, in case utilize the existing one.
-     */
-    ptrState tailState = newState(tail);
-    ptrState  headState = newState(head);
-    ptrTransition transition = newTransition(headState, read, write, move);
 
+    ptrState tailState = getStatePtr(stateList, tail);
+    ptrState headState = getStatePtr(stateList, head);
 
-    //nullOK(stateNum);
-    /*if (*stateNum < tail)
-        *stateNum = tail;
-    if (*stateNum < head)
-        *stateNum = head;
-    if (*stateNum >= MAX_STATES_SIZE * (*maxStateFactor)) { //add a check for maximum array size, then realloc()
-        *maxStateFactor = (*stateNum / MAX_STATES_SIZE) + 1;
-        stateArray = (ptrState *) realloc(stateArray,
-                                          sizeof(ptrState) * (*maxStateFactor) * MAX_STATES_SIZE);
-    }*/
+    if (tailState == NULL) {
+        tailState = newState(tail);
+        stateList = addStateOrdered(stateList, tailState);
+    }
 
-
-
-
+    if (headState == NULL) {
+        headState = newState(head);
+        stateList = addStateOrdered(stateList, headState);
+    }
+    
+    addTransition(tailState, headState, read, write, move);
 
     return stateList;
 }
