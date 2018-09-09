@@ -25,6 +25,13 @@
 #define MAX_LINE_SIZE 160
 #define MAX_STATES_SIZE 50
 
+#define TAIL_POSITION 0
+#define READ_POSITION 1
+#define WRITE_POSITION 2
+#define MOVE_POSITION 3
+#define HEAD_POSITION 4
+#define CHAR_TO_INT_OFFSET '0';
+
 
 
 
@@ -81,7 +88,7 @@ ptrTransition getNext (ptrTransition t);
 ptrTransition newTransitionVoid();
 ptrTransition newTransition(ptrState head, char read, char write, char move);
 ptrTransition addTransition(ptrState tail, ptrState head, char read, char write, char move);
-ptrState turingMachineBuilder(ptrState stateList, unsigned int tail, unsigned int head, char read, char write, char move);
+ptrState turingMachineBuilder(ptrState stateList, char * cleanLine);
 ptrState getStatePtr(ptrState list, unsigned int number);
 ptrState addStateOrdered(ptrState list, ptrState state);
 
@@ -91,7 +98,7 @@ char *inputToString (enum input_state input);
 char *stateToString (enum manager_state state);
 void inputManagerTest (enum manager_state state, enum input_state input);
 void removeSpacesTest (char *line);
-
+void showTM (ptrState s);
 
 
 
@@ -99,29 +106,55 @@ void removeSpacesTest (char *line);
 
 int main (int argc, char *argv[])
 {
-	enum input_state inputState;
-	enum manager_state FSM;
+	// Needed variables
+    enum input_state inputState;
 	char *cleanLine;
-	
-	char * line = (char *) malloc(sizeof(char) * MAX_LINE_SIZE); // prepare input line
-	
-	FSM = Start; // set the input manager in the initial state
-	
+	char line[MAX_LINE_SIZE];
+	ptrState stateList = NULL;
+
+    enum manager_state inputFSM = Start; // Initialize inputFSM at the beginning
+
+    // Main inputFSM loop
 	while (fgets (line, MAX_LINE_SIZE, stdin) != NULL) {
-		inputState = inputParser (line);
-		if (inputState == Data)
-			removeSpacesTest (line);
-		inputManagerTest (FSM, inputState);
-		FSM = nextState (FSM, inputState);
-		
-	}
+        // get state from input line
+	    inputState = inputParser(line);
+
+        switch (inputFSM) {
+		    case Building_TM:
+                if (inputState == Data) {
+                    printf("%s\n", stateToString(inputFSM));
+                    stateList = turingMachineBuilder(stateList, removeWhiteSpaces(line));
+                }
+		        break;
+
+            default:
+                printf("%s\n", stateToString(inputFSM));
+                break;
+		}
+
+
+        // update inputFSM state
+        inputFSM = nextState (inputFSM, inputState);
+
+    }
+
+
+	showTM(stateList);
 }
 
 
 
 /* FUNCTIONS & PROCEDURES */
 
-ptrState turingMachineBuilder(ptrState stateList, unsigned int tail, unsigned int head, char read, char write, char move) {
+ptrState turingMachineBuilder(ptrState stateList, char * cleanLine) {
+    char tailChar = cleanLine[TAIL_POSITION];
+    char headChar = cleanLine[HEAD_POSITION];
+    char read = cleanLine[READ_POSITION];
+    char write = cleanLine[WRITE_POSITION];
+    char move = cleanLine[MOVE_POSITION];
+
+    unsigned int tail = (unsigned int) tailChar - CHAR_TO_INT_OFFSET;
+    unsigned int head = (unsigned int) headChar - CHAR_TO_INT_OFFSET;
 
     ptrState tailState = getStatePtr(stateList, tail);
     ptrState headState = getStatePtr(stateList, head);
@@ -135,8 +168,8 @@ ptrState turingMachineBuilder(ptrState stateList, unsigned int tail, unsigned in
         headState = newState(head);
         stateList = addStateOrdered(stateList, headState);
     }
-    
-    addTransition(tailState, headState, read, write, move);
+
+    tailState->children_list = addTransition(tailState, headState, read, write, move);
 
     return stateList;
 }
@@ -194,8 +227,6 @@ enum manager_state nextState (enum manager_state actualState, enum input_state i
 		case Running:
 			if (input == Data)
 				return actualState;
-			if (input == EOF)
-				return Exit;
 			break;
 			
 		case Exit:
@@ -382,6 +413,20 @@ ptrTransition getNext (ptrTransition t)
 
 
 /* TESTS */
+
+void showTM (ptrState s) {
+    ptrTransition t;
+    printf("\nNTM states and transitions:\n\n");
+    while (s != NULL) {
+        printf("> State %u\n", s->state_number);
+        t = s->children_list;
+        while(t != NULL) {
+            printf(">>>> State %u > R: %c, W: %c, M: %c\n", t->head->state_number, t->read, t->write, t->move);
+            t = t->next;
+        }
+        s = s->next;
+    }
+}
 
 void inputManagerTest (enum manager_state state, enum input_state input)
 {
