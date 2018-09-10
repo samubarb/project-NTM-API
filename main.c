@@ -33,10 +33,11 @@
 #define WRITE_POSITION 2
 #define MOVE_POSITION 3
 #define HEAD_POSITION 4
-#define CHAR_TO_INT_OFFSET '0';
 
+#define ACCEPTANCE_POSITION 0
+#define MAX_POSITION 0
 
-
+#define CHAR_TO_INT_OFFSET '0'
 
 
 /* STRUCTS & TYPEDEFS */
@@ -62,12 +63,8 @@ struct STATE {
     ptrTransition children_list;
 };
 
-
 enum input_state {Tr, Acc, Max, Run, Data}; // Tr: transitions, Acc: acceptance
 enum manager_state {Start, Building_TM, Acceptance_state, Limit, Steady, Running, Exit, ERROR};
-
-
-
 
 
 /* GLOBAL VARIABLES & CONSTANTS */
@@ -77,7 +74,6 @@ enum manager_state {Start, Building_TM, Acceptance_state, Limit, Steady, Running
 /* PROTOTYPES */
 
 enum input_state inputParser (char *input);
-void printTest (char *line);
 enum manager_state nextState (enum manager_state actualState, enum input_state input);
 char *removeWhiteSpaces (char *input);
 void mallocOK (void *ptr);
@@ -98,6 +94,7 @@ ptrState getStatePtr(ptrState list, unsigned int number);
 ptrState addStateOrdered(ptrState list, ptrState state);
 void setAcceptanceState(ptrState stateList, unsigned int state_number);
 void setAcceptance(ptrState list, char * line);
+void setLimit(unsigned int * limit, char * line);
 
 // TESTS
 char *inputToString (enum input_state input);
@@ -107,8 +104,7 @@ void removeSpacesTest (char *line);
 void showTM (ptrState s);
 
 
-
-/* MAIN*/
+/* MAIN */
 
 int main (int argc, char *argv[])
 {
@@ -117,6 +113,7 @@ int main (int argc, char *argv[])
 	char *cleanLine;
 	char line[MAX_LINE_SIZE];
 	ptrState stateList = NULL;
+	unsigned int limit;
 
     enum manager_state inputFSM = Start; // Initialize inputFSM at the beginning
 
@@ -134,9 +131,13 @@ int main (int argc, char *argv[])
 		        break;
 
             case Acceptance_state:
-                if (inputState == Data) {
+                if (inputState == Data)
                     setAcceptance(stateList, line);
-                }
+                break;
+
+            case Limit:
+                if (inputState == Data)
+                    setLimit(&limit, line);
 
             default:
                 printf("%s\n", stateToString(inputFSM));
@@ -146,19 +147,22 @@ int main (int argc, char *argv[])
 
         // update inputFSM state
         inputFSM = nextState (inputFSM, inputState);
-
     }
 
-
 	showTM(stateList);
+	printf("Max moves limit: %u\n", limit);
 }
 
 
 
 /* FUNCTIONS & PROCEDURES */
+void setLimit(unsigned int * limit, char * line) {
+    nullOK(limit);
+    *limit = (unsigned int) atoi(line);
+}
 
 void setAcceptance(ptrState list, char * line) {
-    unsigned int state_number = (unsigned int) line[0] - CHAR_TO_INT_OFFSET;
+    unsigned int state_number = (unsigned int) atoi(line);
     setAcceptanceState(list, state_number);
 }
 
