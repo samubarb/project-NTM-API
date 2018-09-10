@@ -34,8 +34,7 @@
 #define MOVE_POSITION 3
 #define HEAD_POSITION 4
 
-#define FIRST 0
-#define CONSUME_FIRST 1
+#define BEGINNING 0
 
 #define BLANK '_'
 
@@ -50,9 +49,17 @@
 
 typedef struct STATE State;
 typedef struct TRANSITION Transition;
+typedef struct TAPE Tape;
 
-typedef State *ptrState;
-typedef Transition *ptrTransition;
+typedef State * ptrState;
+typedef Transition * ptrTransition;
+typedef Tape * ptrTape;
+
+struct TAPE {
+    char * line;
+    int cursor;
+    size_t length;
+};
 
 struct TRANSITION {
 	ptrState head; // following state
@@ -68,6 +75,7 @@ struct STATE {
     ptrState next;
     ptrTransition children_list;
 };
+
 
 enum input_state {Tr, Acc, Max, Run, Data}; // Tr: transitions, Acc: acceptance
 enum manager_state {Start, Building_TM, Acceptance_state, Limit, Steady, Running, Exit, ERROR};
@@ -100,8 +108,12 @@ void setAcceptanceState(ptrState stateList, unsigned int state_number);
 void setAcceptance(ptrState list, char * line);
 unsigned int isAcceptanceState(ptrState state);
 void setLimit(unsigned int * limit, char * line);
-char startTM(ptrState s, char * line);
+char turingMachineRunner(ptrState s, char *line);
 char * copyString(char * line);
+char read(ptrTape tape);
+void write(ptrTape tape, char write);
+void move(ptrTape tape, char move);
+void fillWithBlanks(char * begin, size_t length);
 
 
 // TESTS
@@ -154,6 +166,10 @@ int main (int argc, char *argv[])
                 break;
 
             case Running:
+                if (inputState == Data) {
+                    turingMachineRunner(stateList, line);
+                    //turingMachineReset(stateList);
+                }
                 break;
 
             case Exit:
@@ -182,44 +198,64 @@ int main (int argc, char *argv[])
 
 /* FUNCTIONS & PROCEDURES */
 
-char startTM(ptrState s, char * line) {
-    //tree explorer, to do recursively
-    int flag = 0;
-    ptrTransition cursor;
-    char input = line[FIRST];
-    char *lineSoFar; // NO NO NO NO, vedi sotto
-    lineSoFar = copyString(line + CONSUME_FIRST); // NO non consuma solo un carattere, ma si può spostare avanti e indietro come vuole
+char turingMachineRunner(ptrState s, char *line) {
+    Tape tape;
+    ptrTransition trCursor;
+}
 
-    if (s == NULL)
-        return NOT_ACCEPTED;
+void initializeTape(ptrTape tape, char * line) {
+    nullOK(tape);
+    size_t length = strlen(line);
+    tape->line = (char *) malloc (sizeof(char) * length);
+    mallocOK(tape->line);
+    tape->cursor = BEGINNING;
+    tape->length = length;
+}
 
-    if (input == NEWLINE || input == EOF) {
-        // End of the input and in acceptance state <==> ACCEPTED
-        if (isAcceptanceState(s) == TRUE)
-            return ACCEPTED;
-        // End of the input and NOT in acceptance state ==> NOT_ACCEPTED
-        else return NOT_ACCEPTED;
+char read(ptrTape tape) {
+    nullOK(tape);
+    nullOK(tape->line);
+    return tape->line[tape->cursor];
+}
+
+void write(ptrTape tape, char write) {
+    nullOK(tape);
+    nullOK(tape->line);
+    tape->line[tape->cursor] = write;
+}
+
+void move(ptrTape tape, char move) {
+    nullOK(tape);
+    nullOK(tape->line);
+
+    switch (move) {
+        case STOP:
+            break;
+
+        case RIGHT:
+            if (tape->cursor + 1 >= tape->length) {
+                tape->line = realloc(tape->line, sizeof(char) * 2 * (tape->length));
+                mallocOK(tape->line);
+                tape->length = 2 * (tape->length);
+                fillWithBlanks(&tape->line[tape->cursor + 1], tape->length);
+            }
+            tape->cursor++;
+            break;
+
+        case LEFT:
+            if (tape->cursor != 0)
+                tape->cursor --;
+            break;
+
+        default:
+            badExit();
     }
+}
 
-    cursor = s->children_list;
-
-    // RIFARE
-
-    if (cursor == NULL && input != BLANK)
-        return NOT_ACCEPTED;
-
-    while (cursor != NULL) {
-        if (getRead(cursor) == input) {
-            flag = 1;
-            // APPLY TM OPERATION HERE
-            if (startTM(getHead(cursor), lineSoFar) == ACCEPTED)
-                return ACCEPTED;
-        }
-        cursor = cursor->next;
-    }
-
-
-
+void fillWithBlanks(char * begin, size_t length) {
+    int i;
+    for (i = 0; i < length; i++)
+        begin[i] = BLANK;
 }
 
 char * copyString(char * line) {
