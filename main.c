@@ -34,8 +34,14 @@
 #define MOVE_POSITION 3
 #define HEAD_POSITION 4
 
-#define ACCEPTANCE_POSITION 0
-#define MAX_POSITION 0
+#define FIRST 0
+#define CONSUME_FIRST 1
+
+#define BLANK '_'
+
+#define ACCEPTED '1'
+#define NOT_ACCEPTED '0'
+#define UNDEFINED 'U'
 
 #define CHAR_TO_INT_OFFSET '0'
 
@@ -67,10 +73,6 @@ enum input_state {Tr, Acc, Max, Run, Data}; // Tr: transitions, Acc: acceptance
 enum manager_state {Start, Building_TM, Acceptance_state, Limit, Steady, Running, Exit, ERROR};
 
 
-/* GLOBAL VARIABLES & CONSTANTS */
-
-
-
 /* PROTOTYPES */
 
 enum input_state inputParser (char *input);
@@ -90,11 +92,17 @@ ptrTransition newTransitionVoid();
 ptrTransition newTransition(ptrState head, char read, char write, char move);
 ptrTransition addTransition(ptrState tail, ptrState head, char read, char write, char move);
 ptrState turingMachineBuilder(ptrState stateList, char * cleanLine);
+ptrState turingMachineReset(ptrState stateList); // TO IMPLEMENT
+ptrState turingMachineDestroyer(ptrState stateList); // TO IMPLEMENT
 ptrState getStatePtr(ptrState list, unsigned int number);
 ptrState addStateOrdered(ptrState list, ptrState state);
 void setAcceptanceState(ptrState stateList, unsigned int state_number);
 void setAcceptance(ptrState list, char * line);
+unsigned int isAcceptanceState(ptrState state);
 void setLimit(unsigned int * limit, char * line);
+char startTM(ptrState s, char * line);
+char * copyString(char * line);
+
 
 // TESTS
 char *inputToString (enum input_state input);
@@ -102,6 +110,8 @@ char *stateToString (enum manager_state state);
 void inputManagerTest (enum manager_state state, enum input_state input);
 void removeSpacesTest (char *line);
 void showTM (ptrState s);
+void badExit();
+void goodExit();
 
 
 /* MAIN */
@@ -138,8 +148,23 @@ int main (int argc, char *argv[])
             case Limit:
                 if (inputState == Data)
                     setLimit(&limit, line);
+                break;
 
-            default:
+            case Steady:
+                break;
+
+            case Running:
+                break;
+
+            case Exit:
+                goodExit();
+                break;
+
+            case ERROR:
+                badExit();
+                break;
+
+            default: // Only for testing
                 printf("%s\n", stateToString(inputFSM));
                 break;
 		}
@@ -156,6 +181,53 @@ int main (int argc, char *argv[])
 
 
 /* FUNCTIONS & PROCEDURES */
+
+char startTM(ptrState s, char * line) {
+    //tree explorer, to do recursively
+    int flag = 0;
+    ptrTransition cursor;
+    char input = line[FIRST];
+    char *lineSoFar; // NO NO NO NO, vedi sotto
+    lineSoFar = copyString(line + CONSUME_FIRST); // NO non consuma solo un carattere, ma si può spostare avanti e indietro come vuole
+
+    if (s == NULL)
+        return NOT_ACCEPTED;
+
+    if (input == NEWLINE || input == EOF) {
+        // End of the input and in acceptance state <==> ACCEPTED
+        if (isAcceptanceState(s) == TRUE)
+            return ACCEPTED;
+        // End of the input and NOT in acceptance state ==> NOT_ACCEPTED
+        else return NOT_ACCEPTED;
+    }
+
+    cursor = s->children_list;
+
+    // RIFARE
+
+    if (cursor == NULL && input != BLANK)
+        return NOT_ACCEPTED;
+
+    while (cursor != NULL) {
+        if (getRead(cursor) == input) {
+            flag = 1;
+            // APPLY TM OPERATION HERE
+            if (startTM(getHead(cursor), lineSoFar) == ACCEPTED)
+                return ACCEPTED;
+        }
+        cursor = cursor->next;
+    }
+
+
+
+}
+
+char * copyString(char * line) {
+    char * ret = malloc(sizeof(char) * strlen(line));
+    strcpy(ret, line);
+    return ret;
+}
+
 void setLimit(unsigned int * limit, char * line) {
     nullOK(limit);
     *limit = (unsigned int) atoi(line);
@@ -309,6 +381,16 @@ void nullOK (void *ptr)
 		exit (2);
 	}
 }
+
+void badExit () {
+    printf("ERROR: input lead to a wrong state");
+    exit (3);
+}
+
+void goodExit () {
+    exit(0);
+}
+
 
 ptrState newStateVoid()
 {
