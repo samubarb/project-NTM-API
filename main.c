@@ -14,6 +14,9 @@
 #define RUN "run\n"
 
 #define EQUALS 0
+#define TRUE 1
+#define FALSE 0
+
 #define TRANSITION_LENGTH 5
 #define UNASSIGNED '\n'
 
@@ -31,6 +34,7 @@
 #define MOVE_POSITION 3
 #define HEAD_POSITION 4
 #define CHAR_TO_INT_OFFSET '0';
+
 
 
 
@@ -53,6 +57,7 @@ struct TRANSITION {
 
 struct STATE {
 	unsigned int state_number;
+	unsigned int acceptance; // TRUE or FALSE (1 or 0)
     ptrState next;
     ptrTransition children_list;
 };
@@ -91,7 +96,8 @@ ptrTransition addTransition(ptrState tail, ptrState head, char read, char write,
 ptrState turingMachineBuilder(ptrState stateList, char * cleanLine);
 ptrState getStatePtr(ptrState list, unsigned int number);
 ptrState addStateOrdered(ptrState list, ptrState state);
-
+void setAcceptanceState(ptrState stateList, unsigned int state_number);
+void setAcceptance(ptrState list, char * line);
 
 // TESTS
 char *inputToString (enum input_state input);
@@ -127,6 +133,11 @@ int main (int argc, char *argv[])
                 }
 		        break;
 
+            case Acceptance_state:
+                if (inputState == Data) {
+                    setAcceptance(stateList, line);
+                }
+
             default:
                 printf("%s\n", stateToString(inputFSM));
                 break;
@@ -145,6 +156,22 @@ int main (int argc, char *argv[])
 
 
 /* FUNCTIONS & PROCEDURES */
+
+void setAcceptance(ptrState list, char * line) {
+    unsigned int state_number = (unsigned int) line[0] - CHAR_TO_INT_OFFSET;
+    setAcceptanceState(list, state_number);
+}
+
+void setAcceptanceState(ptrState stateList, unsigned int state_number) {
+    ptrState accState = getStatePtr(stateList, state_number);
+    nullOK(accState);
+    accState->acceptance = TRUE;
+}
+
+unsigned int isAcceptanceState(ptrState state) {
+    nullOK(state);
+    return state->acceptance;
+}
 
 ptrState turingMachineBuilder(ptrState stateList, char * cleanLine) {
     char tailChar = cleanLine[TAIL_POSITION];
@@ -283,6 +310,7 @@ ptrState newStateVoid()
 {
 	ptrState ret = (ptrState) malloc (sizeof (State));
 	mallocOK (ret);
+	ret->acceptance = FALSE;
 	ret->next = NULL;
 	ret->children_list = NULL;
 	return ret;
@@ -418,10 +446,13 @@ void showTM (ptrState s) {
     ptrTransition t;
     printf("\nNTM states and transitions:\n\n");
     while (s != NULL) {
-        printf("> State %u\n", s->state_number);
+        printf("> ");
+        if (s->acceptance == TRUE)
+            printf("ACC ");
+        printf("State %u\n", s->state_number);
         t = s->children_list;
         while(t != NULL) {
-            printf(">>>> State %u > R: %c, W: %c, M: %c\n", t->head->state_number, t->read, t->write, t->move);
+            printf(">>>> State %u ~ R: %c, W: %c, M: %c\n", t->head->state_number, t->read, t->write, t->move);
             t = t->next;
         }
         s = s->next;
