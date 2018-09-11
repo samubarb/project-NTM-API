@@ -26,7 +26,7 @@
 #define SPACE ' '
 
 #define MAX_LINE_SIZE 160
-#define MAX_STATES_SIZE 50
+#define DOUBLE_FACTOR 2
 
 #define TAIL_POSITION 0
 #define READ_POSITION 1
@@ -62,16 +62,16 @@ struct TAPE {
 };
 
 struct TRANSITION {
-	ptrState head; // following state
-	char read;
-	char write;
-	char move;
-	ptrTransition next; // single-linked list
+    ptrState head; // following state
+    char read;
+    char write;
+    char move;
+    ptrTransition next; // single-linked list
 };
 
 struct STATE {
-	unsigned int state_number;
-	unsigned int acceptance; // TRUE or FALSE (1 or 0)
+    unsigned int state_number;
+    unsigned int acceptance; // TRUE or FALSE (1 or 0)
     ptrState next;
     ptrTransition children_list;
 };
@@ -113,11 +113,16 @@ char *copyString(char * line, size_t length);
 char read(ptrTape tape);
 void write(ptrTape tape, char write);
 void move(ptrTape tape, char move);
-void fillWithBlanks(char * begin, size_t length);
+void fillWithBlanksRight(ptrTape tape);
 ptrTape newTapeVoid();
 ptrTape newTape(char * line, size_t length);
 ptrTape applyAction(ptrTape tapeSoFar, ptrTransition transition);
 ptrTape cloneTape(ptrTape tape);
+ptrTape shiftAndFillWithBlanksLeft(ptrTape tape);
+ptrTape addBlanksRight(ptrTape tape);
+ptrTape addBlanksLeft(ptrTape tape);
+
+
 
 // MEMORY CLEANING
 ptrTransition killChildren(ptrTransition child);
@@ -138,27 +143,31 @@ void goodExit();
 
 int main (int argc, char *argv[])
 {
-	// Needed variables
+    // Needed variables
     enum input_state inputState;
-	char *cleanLine;
-	char line[MAX_LINE_SIZE];
-	ptrState stateList = NULL;
-	unsigned int limit;
+    char *cleanLine;
+    char line[MAX_LINE_SIZE];
+    ptrState stateList = NULL;
+    unsigned int limit;
+    char output;
 
     enum manager_state inputFSM = Start; // Initialize inputFSM at the beginning
 
     // Main inputFSM loop
-	while (fgets (line, MAX_LINE_SIZE, stdin) != NULL) {
-        // get state from input line
-	    inputState = inputParser(line);
+    while (fgets (line, MAX_LINE_SIZE, stdin) != NULL) {
+        // Get state from input line
+        inputState = inputParser(line);
 
         switch (inputFSM) {
-		    case Building_TM:
-                if (inputState == Data) {
-                    printf("%s\n", stateToString(inputFSM));
+            case Start:
+                if (inputState != Tr)
+                    badExit();
+                break;
+
+            case Building_TM:
+                if (inputState == Data)
                     stateList = turingMachineBuilder(stateList, removeWhiteSpaces(line));
-                }
-		        break;
+                break;
 
             case Acceptance_state:
                 if (inputState == Data)
@@ -171,12 +180,14 @@ int main (int argc, char *argv[])
                 break;
 
             case Steady:
+                if (inputState != Run)
+                    badExit();
                 break;
 
             case Running:
                 if (inputState == Data) {
-                    turingMachineRunner(stateList, line);
-                    //turingMachineReset(stateList);
+                    output = turingMachineRunner(stateList, line);
+                    printf("%c\n", output);
                 }
                 break;
 
@@ -187,19 +198,15 @@ int main (int argc, char *argv[])
             case ERROR:
                 badExit();
                 break;
-
-            default: // Only for testing
-                printf("%s\n", stateToString(inputFSM));
-                break;
-		}
+        }
 
 
         // update inputFSM state
         inputFSM = nextState (inputFSM, inputState);
     }
 
-	showTM(stateList);
-	printf("Max moves limit: %u\n", limit);
+    //showTM(stateList);
+    printf("Max moves limit: %u\n", limit);
 }
 
 
@@ -207,7 +214,7 @@ int main (int argc, char *argv[])
 /* FUNCTIONS & PROCEDURES */
 
 char turingMachineRunner(ptrState s, char *line) {
-    ptrTape tape = newTape(line, strlen(line));
+    ptrTape tape = newTape(line, strlen(line)); // strlen() used here to measure the given original input
     return turingMachineRunnerRecursive(s, tape);
 }
 
@@ -227,17 +234,17 @@ char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar) {
     trCursor = s->children_list;
 
     while (trCursor != NULL) {
-        tapeDestroyer(tapeToForward); // frees memory
 
         if (getRead(trCursor) == read(tapeSoFar)) {
             tapeToForward = applyAction(tapeSoFar, trCursor);
-            if (turingMachineRunnerRecursive(getHead(trCursor), tapeToForward) == ACCEPTED)
+            if (turingMachineRunnerRecursive(getHead(trCursor), tapeToForward) == ACCEPTED){
+                tapeDestroyer(tapeToForward); // Frees memory
                 return ACCEPTED;
+            }
         }
-
         trCursor = getNext(trCursor);
     }
-
+    tapeDestroyer(tapeToForward); // Frees memory
     return NOT_ACCEPTED;
 }
 
@@ -324,21 +331,19 @@ void move(ptrTape tape, char move) {
 
     switch (move) {
         case STOP:
+            // Do nothing;
             break;
 
         case RIGHT:
-            if (tape->cursor + 1 >= tape->length) {
-                tape->line = realloc(tape->line, sizeof(char) * 2 * (tape->length));
-                mallocOK(tape->line);
-                tape->length = 2 * (tape->length);
-                fillWithBlanks(&tape->line[tape->cursor + 1], tape->length);
-            }
+            if (tape->cursor + 1 >= tape->length)
+                addBlanksRight(tape);
             tape->cursor++;
             break;
 
         case LEFT:
-            if (tape->cursor != 0)
-                tape->cursor --;
+            if (tape->cursor == BEGINNING)
+                addBlanksLeft(tape);
+            tape->cursor --;
             break;
 
         default:
@@ -346,14 +351,40 @@ void move(ptrTape tape, char move) {
     }
 }
 
-void fillWithBlanks(char * begin, size_t length) {
+ptrTape addBlanksRight(ptrTape tape) {
+    tape->line = realloc(tape->line, sizeof(char) * DOUBLE_FACTOR * (tape->length));
+    mallocOK(tape->line);
+    tape->length = DOUBLE_FACTOR * (tape->length);
+    fillWithBlanksRight(tape);
+    return tape;
+}
+
+ptrTape addBlanksLeft(ptrTape tape) {
+    tape->line = realloc(tape->line, sizeof(char) * DOUBLE_FACTOR * (tape->length));
+    mallocOK(tape->line);
+    tape->length = DOUBLE_FACTOR * (tape->length);
+    shiftAndFillWithBlanksLeft(tape);
+    tape->cursor = BEGINNING + (unsigned int) tape->length / DOUBLE_FACTOR;
+    return tape;
+}
+
+ptrTape shiftAndFillWithBlanksLeft(ptrTape tape) {
     int i;
-    for (i = 0; i < length; i++)
-        begin[i] = BLANK;
+    for (i = 0; i < tape->length / DOUBLE_FACTOR; i++) {
+        tape->line[i + tape->length / DOUBLE_FACTOR] = tape->line[i];
+        tape->line[i] = BLANK;
+    }
+    return tape;
+}
+
+void fillWithBlanksRight(ptrTape tape) {
+    int i;
+    for (i = 0; i < tape->length; i++)
+        tape->line[i] = BLANK;
 }
 
 char * copyString(char * line, size_t length) {
-    char * ret = malloc(sizeof(char) * strlen(line));
+    char * ret = malloc(sizeof(char) * length);
     mallocOK(ret);
     return strncpy(ret, line, length);
 }
@@ -409,107 +440,106 @@ ptrState turingMachineBuilder(ptrState stateList, char * cleanLine) {
 
 enum input_state inputParser (char *input)
 {
-	if (EQUALS == strcmp (input, TR))
-		return Tr;
-		
-	if (EQUALS == strcmp (input, ACC))
-		return Acc;
-		
-	if (EQUALS == strcmp (input, MAX))
-		return Max;
-		
-	if (EQUALS == strcmp (input, RUN))
-		return Run;
-		
-	return Data;
+    if (EQUALS == strcmp (input, TR))
+        return Tr;
+
+    if (EQUALS == strcmp (input, ACC))
+        return Acc;
+
+    if (EQUALS == strcmp (input, MAX))
+        return Max;
+
+    if (EQUALS == strcmp (input, RUN))
+        return Run;
+
+    return Data;
 }
 
 enum manager_state nextState (enum manager_state actualState, enum input_state input)
 {
 
-	switch (actualState) {
-	case Start:
-				if (input == Tr)
-					return Building_TM;
-			break;
-			
-		case Building_TM:
-			if (input == Acc)
-				return Acceptance_state;
-			if (input == Data)
-				return actualState;
-			break;
-			
-		case Acceptance_state:
-			if (input == Max)
-				return Limit;
-			if (input == Data)
-				return actualState;
-			break;
-			
-		case Limit:
-			if (input == Data)
-				return Steady;
-			break;
-			
-		case Steady:
-			if (input == Run)
-				return Running;
-			break;
-			
-		case Running:
-			if (input == Data)
-				return actualState;
-			break;
-			
-		case Exit:
-			return Exit;
-			
-		case ERROR:
-			return ERROR;
-		}
-		return ERROR;
-	}
-	
-	char *removeWhiteSpaces (char *input)
-{
-	int i, j;
-	size_t len = strlen (input);
-	char output[len];
-	char *ret;
-	
-	j = 0;
-	for (i = 0; i < len; i++) {
-		if (input[i] != SPACE) {
-			output[j] = input[i];
-			j++;
-		}
-	}
-	
-	j--;
-	
-	ret = (char *) malloc (sizeof (char) * j);
-	
-	for (i = 0; i < j; i++)
-		ret[i] = output[i];
-		
-	return ret;
+    switch (actualState) {
+        case Start:
+            if (input == Tr)
+                return Building_TM;
+            break;
+
+        case Building_TM:
+            if (input == Acc)
+                return Acceptance_state;
+            if (input == Data)
+                return actualState;
+            break;
+
+        case Acceptance_state:
+            if (input == Max)
+                return Limit;
+            if (input == Data)
+                return actualState;
+            break;
+
+        case Limit:
+            if (input == Data)
+                return Steady;
+            break;
+
+        case Steady:
+            if (input == Run)
+                return Running;
+            break;
+
+        case Running:
+            if (input == Data)
+                return actualState;
+            break;
+
+        case Exit:
+            return Exit;
+
+        case ERROR:
+            return ERROR;
+    }
+    return ERROR;
+}
+
+char *removeWhiteSpaces (char *input) {
+    int i, j;
+    size_t len = strlen (input); // strlen() used here to measure the input
+    char output[len];
+    char *ret;
+
+    j = 0;
+    for (i = 0; i < len; i++) {
+        if (input[i] != SPACE) {
+            output[j] = input[i];
+            j++;
+        }
+    }
+
+    j--;
+
+    ret = (char *) malloc (sizeof (char) * j);
+
+    for (i = 0; i < j; i++)
+        ret[i] = output[i];
+
+    return ret;
 }
 
 void mallocOK (void *ptr)
 {
-	if (ptr == NULL) {
-		printf ("ERROR: memory allocation failed");
-		exit (1);
-	}
+    if (ptr == NULL) {
+        printf ("ERROR: memory allocation failed");
+        exit (1);
+    }
 }
 
 void nullOK (void *ptr)
 {
-	if (ptr == NULL) {
-		printf ("ERROR: tried to access fields of a NULL pointer");
-		exit (2);
-	}
+    if (ptr == NULL) {
+        printf ("ERROR: tried to access fields of a NULL pointer");
+        exit (2);
+    }
 }
 
 void badExit () {
@@ -524,19 +554,19 @@ void goodExit () {
 
 ptrState newStateVoid()
 {
-	ptrState ret = (ptrState) malloc (sizeof (State));
-	mallocOK (ret);
-	ret->acceptance = FALSE;
-	ret->next = NULL;
-	ret->children_list = NULL;
-	return ret;
+    ptrState ret = (ptrState) malloc (sizeof (State));
+    mallocOK (ret);
+    ret->acceptance = FALSE;
+    ret->next = NULL;
+    ret->children_list = NULL;
+    return ret;
 }
 
 ptrState newState (unsigned int state_number)
 {
-	ptrState ret = newStateVoid();
-	ret->state_number = state_number;
-	return ret;
+    ptrState ret = newStateVoid();
+    ret->state_number = state_number;
+    return ret;
 }
 
 ptrTransition newTransitionVoid() {
@@ -618,36 +648,36 @@ ptrState addStateOrdered(ptrState list, ptrState state) {
 
 unsigned int getStateNumber (ptrState s)
 {
-	nullOK (s);
-	return s->state_number;
+    nullOK (s);
+    return s->state_number;
 }
 
 char getRead (ptrTransition t)
 {
-	nullOK (t);
-	return t->read;
+    nullOK (t);
+    return t->read;
 }
 
 char getWrite (ptrTransition t)
 {
-	nullOK (t);
-	return t->write;
+    nullOK (t);
+    return t->write;
 }
 
 char getMove (ptrTransition t)
 {
-	nullOK (t);
-	return t->move;
+    nullOK (t);
+    return t->move;
 }
 
 ptrState getHead (ptrTransition t)
 {
-	return t->head;
+    return t->head;
 }
 
 ptrTransition getNext (ptrTransition t)
 {
-	return t->next;
+    return t->next;
 }
 
 
@@ -677,96 +707,96 @@ void showTM (ptrState s) {
 
 void inputManagerTest (enum manager_state state, enum input_state input)
 {
-	printf ("Actual state: %s\n", stateToString (state));
-	printf ("Input: %s\n", inputToString (input));
-	printf ("Next state: %s\n", stateToString (nextState (state, input)));
-	printf ("\n");
+    printf ("Actual state: %s\n", stateToString (state));
+    printf ("Input: %s\n", inputToString (input));
+    printf ("Next state: %s\n", stateToString (nextState (state, input)));
+    printf ("\n");
 }
 
 void inputParserTest (char *line)
 {
-	enum input_state state = inputParser (line);
-	
-	printf ("Line: %s ", line);
-	printf ("State: ");
-	
-	switch (state) {
-	case Tr:
-		printf ("Transition");
-		break;
-		
-	case Acc:
-		printf ("Acceptance");
-		break;
-		
-	case Max:
-		printf ("Max");
-		break;
-		
-	case Run:
-		printf ("Run");
-		break;
-		
-	case Data:
-		printf ("Data");
-	}
-	
-	printf ("\n");
+    enum input_state state = inputParser (line);
+
+    printf ("Line: %s ", line);
+    printf ("State: ");
+
+    switch (state) {
+        case Tr:
+            printf ("Transition");
+            break;
+
+        case Acc:
+            printf ("Acceptance");
+            break;
+
+        case Max:
+            printf ("Max");
+            break;
+
+        case Run:
+            printf ("Run");
+            break;
+
+        case Data:
+            printf ("Data");
+    }
+
+    printf ("\n");
 }
 
 void removeSpacesTest (char *line)
 {
-	char *cleanLine;
-	
-	cleanLine = removeWhiteSpaces (line);
-	printf ("Clean line: %5s\n", cleanLine);
+    char *cleanLine;
+
+    cleanLine = removeWhiteSpaces (line);
+    printf ("Clean line: %5s\n", cleanLine);
 }
 
 char *inputToString (enum input_state input)
 {
-	switch (input) {
-	case Tr:
-		return "Transition";
-		
-	case Acc:
-		return "Acceptance";
-		
-	case Max:
-		return "Max";
-		
-	case Run:
-		return "Run";
-		
-	case Data:
-		return "Data";
-	}
+    switch (input) {
+        case Tr:
+            return "Transition";
+
+        case Acc:
+            return "Acceptance";
+
+        case Max:
+            return "Max";
+
+        case Run:
+            return "Run";
+
+        case Data:
+            return "Data";
+    }
 }
 
 char *stateToString (enum manager_state state)
 {
-	switch (state) {
-	case Start:
-		return "Start";
-		
-	case Building_TM:
-		return "Building TM";
-		
-	case Acceptance_state:
-		return "Acceptance state";
-		
-	case Limit:
-		return "Limit";
-		
-	case Steady:
-		return "Steady";
-		
-	case Running:
-		return "Running";
-		
-	case Exit:
-		return "Exit";
-		
-	case ERROR:
-		return "ERROR";
-	}
+    switch (state) {
+        case Start:
+            return "Start";
+
+        case Building_TM:
+            return "Building TM";
+
+        case Acceptance_state:
+            return "Acceptance state";
+
+        case Limit:
+            return "Limit";
+
+        case Steady:
+            return "Steady";
+
+        case Running:
+            return "Running";
+
+        case Exit:
+            return "Exit";
+
+        case ERROR:
+            return "ERROR";
+    }
 }
