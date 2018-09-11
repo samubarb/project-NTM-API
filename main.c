@@ -95,13 +95,12 @@ char getRead (ptrTransition t);
 char getWrite (ptrTransition t);
 char getMove (ptrTransition t);
 ptrState getHead (ptrTransition t);
-ptrTransition getNext (ptrTransition t);
+ptrTransition getNext (ptrTransition t); // probabilmente da eliminare
 ptrTransition newTransitionVoid();
 ptrTransition newTransition(ptrState head, char read, char write, char move);
 ptrTransition addTransition(ptrState tail, ptrState head, char read, char write, char move);
+unsigned int hasTransitions(ptrState state);
 ptrState turingMachineBuilder(ptrState stateList, char * cleanLine);
-ptrState turingMachineReset(ptrState stateList); // TO IMPLEMENT
-ptrState turingMachineDestroyer(ptrState stateList); // TO IMPLEMENT
 ptrState getStatePtr(ptrState list, unsigned int number);
 ptrState addStateOrdered(ptrState list, ptrState state);
 void setAcceptanceState(ptrState stateList, unsigned int state_number);
@@ -109,12 +108,21 @@ void setAcceptance(ptrState list, char * line);
 unsigned int isAcceptanceState(ptrState state);
 void setLimit(unsigned int * limit, char * line);
 char turingMachineRunner(ptrState s, char *line);
-char * copyString(char * line);
+char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar);
+char *copyString(char * line, size_t length);
 char read(ptrTape tape);
 void write(ptrTape tape, char write);
 void move(ptrTape tape, char move);
 void fillWithBlanks(char * begin, size_t length);
+ptrTape newTapeVoid();
+ptrTape newTape(char * line, size_t length);
+ptrTape applyAction(ptrTape tapeSoFar, ptrTransition transition);
+ptrTape cloneTape(ptrTape tape);
 
+// MEMORY CLEANING
+ptrState turingMachineReset(ptrState stateList); // TO IMPLEMENT
+ptrState turingMachineDestroyer(ptrState stateList); // TO IMPLEMENT
+ptrTape tapeDestroyer (ptrTape tape);
 
 // TESTS
 char *inputToString (enum input_state input);
@@ -199,17 +207,82 @@ int main (int argc, char *argv[])
 /* FUNCTIONS & PROCEDURES */
 
 char turingMachineRunner(ptrState s, char *line) {
-    Tape tape;
-    ptrTransition trCursor;
+    ptrTape tape = newTape(line, strlen(line));
+    return turingMachineRunnerRecursive(s, tape);
 }
 
-void initializeTape(ptrTape tape, char * line) {
-    nullOK(tape);
-    size_t length = strlen(line);
-    tape->line = (char *) malloc (sizeof(char) * length);
-    mallocOK(tape->line);
-    tape->cursor = BEGINNING;
+char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar) {
+    ptrTransition trCursor;
+    ptrTape tapeToForward = NULL;
+
+    if (s == NULL) // ?? or accepted ??
+        return NOT_ACCEPTED;
+
+    if (isAcceptanceState(s) == TRUE)
+        return ACCEPTED;
+
+    if (hasTransitions(s) == FALSE)
+        return NOT_ACCEPTED;
+
+    trCursor = s->children_list;
+
+    while (trCursor != NULL) {
+        tapeDestroyer(tapeToForward); // frees memory
+        if (getRead(trCursor) == read(tapeSoFar)) {
+            tapeToForward = applyAction(tapeSoFar, trCursor);
+            if (turingMachineRunnerRecursive(getHead(trCursor), tapeToForward) == ACCEPTED)
+                return ACCEPTED;
+        }
+        trCursor = getNext(trCursor);
+    }
+
+    return NOT_ACCEPTED;
+}
+
+ptrTape applyAction(ptrTape tapeSoFar, ptrTransition transition) {
+    ptrTape ret = cloneTape(tapeSoFar);
+    write(ret, getWrite(transition));
+    move(ret, getMove(transition));
+    return ret;
+}
+
+ptrTape cloneTape(ptrTape tape) {
+    ptrTape ret = newTape(tape->line, tape->length);
+    ret->cursor = tape->cursor;
+    return ret;
+}
+
+ptrTape tapeDestroyer (ptrTape tape) {
+    if (tape == NULL)
+        return NULL;
+
+    if (tape->line != NULL)
+        free(tape->line);
+
+    free(tape);
+    return NULL;
+}
+
+unsigned int hasTransitions(ptrState state) {
+    nullOK(state);
+    if (state->children_list == NULL)
+        return FALSE;
+    return TRUE;
+}
+
+ptrTape newTapeVoid() {
+    ptrTape ret = (ptrTape) malloc(sizeof(Tape));
+    mallocOK(ret);
+    ret->cursor = BEGINNING;
+    ret->line = NULL;
+    return ret;
+}
+
+ptrTape newTape(char * line, size_t length) {
+    ptrTape tape = newTapeVoid();
+    tape->line = copyString(line, length);
     tape->length = length;
+    return tape;
 }
 
 char read(ptrTape tape) {
@@ -258,10 +331,10 @@ void fillWithBlanks(char * begin, size_t length) {
         begin[i] = BLANK;
 }
 
-char * copyString(char * line) {
+char * copyString(char * line, size_t length) {
     char * ret = malloc(sizeof(char) * strlen(line));
-    strcpy(ret, line);
-    return ret;
+    mallocOK(ret);
+    return strncpy(ret, line, length);
 }
 
 void setLimit(unsigned int * limit, char * line) {
