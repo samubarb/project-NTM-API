@@ -95,7 +95,7 @@ char getRead (ptrTransition t);
 char getWrite (ptrTransition t);
 char getMove (ptrTransition t);
 ptrState getHead (ptrTransition t);
-ptrTransition getNext (ptrTransition t); // probabilmente da eliminare
+ptrTransition getNext (ptrTransition t);
 ptrTransition newTransitionVoid();
 ptrTransition newTransition(ptrState head, char read, char write, char move);
 ptrTransition addTransition(ptrState tail, ptrState head, char read, char write, char move);
@@ -120,8 +120,8 @@ ptrTape applyAction(ptrTape tapeSoFar, ptrTransition transition);
 ptrTape cloneTape(ptrTape tape);
 
 // MEMORY CLEANING
-ptrState turingMachineReset(ptrState stateList); // TO IMPLEMENT
-ptrState turingMachineDestroyer(ptrState stateList); // TO IMPLEMENT
+ptrTransition killChildren(ptrTransition child);
+ptrState turingMachineDestroyer(ptrState stateList);
 ptrTape tapeDestroyer (ptrTape tape);
 
 // TESTS
@@ -215,7 +215,7 @@ char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar) {
     ptrTransition trCursor;
     ptrTape tapeToForward = NULL;
 
-    if (s == NULL) // ?? or accepted ??
+    if (s == NULL) // ?? or ACCEPTED ??
         return NOT_ACCEPTED;
 
     if (isAcceptanceState(s) == TRUE)
@@ -228,16 +228,37 @@ char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar) {
 
     while (trCursor != NULL) {
         tapeDestroyer(tapeToForward); // frees memory
+
         if (getRead(trCursor) == read(tapeSoFar)) {
             tapeToForward = applyAction(tapeSoFar, trCursor);
             if (turingMachineRunnerRecursive(getHead(trCursor), tapeToForward) == ACCEPTED)
                 return ACCEPTED;
         }
+
         trCursor = getNext(trCursor);
     }
 
     return NOT_ACCEPTED;
 }
+
+ptrState turingMachineDestroyer(ptrState stateList) {
+    if (stateList == NULL)
+        return NULL;
+    killChildren(stateList->children_list);
+    turingMachineDestroyer(stateList->next);
+    free(stateList);
+    return NULL;
+}
+
+
+ptrTransition killChildren(ptrTransition child) {
+    if (child == NULL)
+        return NULL;
+    killChildren(child->next);
+    free(child);
+    return NULL;
+}
+
 
 ptrTape applyAction(ptrTape tapeSoFar, ptrTransition transition) {
     ptrTape ret = cloneTape(tapeSoFar);
@@ -554,7 +575,7 @@ ptrState getStatePtr(ptrState list, unsigned int number) {
         return NULL;
 
     while (list != NULL)
-        if (list->state_number == number)
+        if (getStateNumber(list) == number)
             return list;
         else list = list->next;
 
@@ -569,7 +590,7 @@ ptrState addStateOrdered(ptrState list, ptrState state) {
         return list;
     }
 
-    if (list->state_number > state->state_number) {
+    if (getStateNumber(list) > getStateNumber(state)) {
         state->next = list;
         return state;
     }
@@ -582,7 +603,7 @@ ptrState addStateOrdered(ptrState list, ptrState state) {
     head = list;
 
     while (list->next != NULL) {
-        if (list->next->state_number > state->state_number) {
+        if (getStateNumber(list->next) > getStateNumber(state)) {
             aux = list->next;
             list->next = state;
             state->next = aux;
@@ -644,10 +665,10 @@ void showTM (ptrState s) {
         printf("> ");
         if (s->acceptance == TRUE)
             printf("ACC ");
-        printf("State %u\n", s->state_number);
+        printf("State %u\n", getStateNumber(s));
         t = s->children_list;
         while(t != NULL) {
-            printf(">>>> State %u ~ R: %c, W: %c, M: %c\n", t->head->state_number, t->read, t->write, t->move);
+            printf(">>>> State %u ~ R: %c, W: %c, M: %c\n", getStateNumber(t->head), t->read, t->write, t->move);
             t = t->next;
         }
         s = s->next;
