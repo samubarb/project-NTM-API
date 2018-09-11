@@ -1,3 +1,10 @@
+/**
+ * Samuele Barbieri
+ * Matricola: 827179
+ * Codice Persona: 10490394
+ * samuele.barbieri@mail.polimi.it
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
@@ -17,12 +24,6 @@
 #define TRUE 1
 #define FALSE 0
 
-#define TRANSITION_LENGTH 5
-#define UNASSIGNED '\n'
-
-#define TAB '\t'
-#define NEWLINE '\n'
-#define EOL '\0'
 #define SPACE ' '
 
 #define MAX_LINE_SIZE 160
@@ -36,6 +37,8 @@
 
 #define BEGINNING 0
 
+#define NEWLINE '\n'
+#define EOL '\0'
 #define BLANK '_'
 
 #define ACCEPTED '1'
@@ -106,9 +109,9 @@ ptrState addStateOrdered(ptrState list, ptrState state);
 void setAcceptanceState(ptrState stateList, unsigned int state_number);
 void setAcceptance(ptrState list, char * line);
 unsigned int isAcceptanceState(ptrState state);
-void setLimit(unsigned int * limit, char * line);
-char turingMachineRunner(ptrState s, char *line);
-char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar);
+void setLimit(int * limit, char * line);
+char turingMachineRunner(ptrState s, char *line, int limit);
+char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar, int *limit);
 char *copyString(char * line, size_t length);
 char read(ptrTape tape);
 void write(ptrTape tape, char write);
@@ -122,19 +125,19 @@ ptrTape shiftAndFillWithBlanksLeft(ptrTape tape);
 ptrTape addBlanksRight(ptrTape tape);
 ptrTape addBlanksLeft(ptrTape tape);
 
-
-
 // MEMORY CLEANING
 ptrTransition killChildren(ptrTransition child);
 ptrState turingMachineDestroyer(ptrState stateList);
 ptrTape tapeDestroyer (ptrTape tape);
 
-// TESTS
+// TESTS & MISCELLANEOUS
 char *inputToString (enum input_state input);
 char *stateToString (enum manager_state state);
+size_t inputLength (char * input);
 void inputManagerTest (enum manager_state state, enum input_state input);
 void removeSpacesTest (char *line);
 void showTM (ptrState s);
+void showStep(ptrState s, ptrTape tapeSoFar, int *limit);
 void badExit();
 void goodExit();
 
@@ -148,7 +151,7 @@ int main (int argc, char *argv[])
     char *cleanLine;
     char line[MAX_LINE_SIZE];
     ptrState stateList = NULL;
-    unsigned int limit;
+    int limit;
     char output;
 
     enum manager_state inputFSM = Start; // Initialize inputFSM at the beginning
@@ -186,7 +189,7 @@ int main (int argc, char *argv[])
 
             case Running:
                 if (inputState == Data) {
-                    output = turingMachineRunner(stateList, line);
+                    output = turingMachineRunner(stateList, line, limit);
                     printf("%c\n", output);
                 }
                 break;
@@ -206,27 +209,34 @@ int main (int argc, char *argv[])
     }
 
     //showTM(stateList);
-    printf("Max moves limit: %u\n", limit);
+    //printf("Max moves limit: %d\n", limit);
 }
 
 
 
 /* FUNCTIONS & PROCEDURES */
 
-char turingMachineRunner(ptrState s, char *line) {
-    ptrTape tape = newTape(line, strlen(line)); // strlen() used here to measure the given original input
-    return turingMachineRunnerRecursive(s, tape);
+char turingMachineRunner(ptrState s, char *line, int limit) {
+    ptrTape tape = newTape(line, inputLength(line));
+    return turingMachineRunnerRecursive(s, tape, &limit);
 }
 
-char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar) {
+char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar, int *limit) {
     ptrTransition trCursor;
     ptrTape tapeToForward = NULL;
 
-    if (s == NULL) // ?? or ACCEPTED ??
+    if (*limit <= 0)
+        return UNDEFINED;
+
+    if (s == NULL) // A void TM always accepts
         return NOT_ACCEPTED;
+
+    showStep(s, tapeSoFar, limit); // For testing
 
     if (isAcceptanceState(s) == TRUE)
         return ACCEPTED;
+
+    // CONTROLLA SE I TAPE DESTROYER HANNO SENSO DOVE SONO MESSI
 
     if (hasTransitions(s) == FALSE)
         return NOT_ACCEPTED;
@@ -236,8 +246,9 @@ char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar) {
     while (trCursor != NULL) {
 
         if (getRead(trCursor) == read(tapeSoFar)) {
+            (*limit)--;
             tapeToForward = applyAction(tapeSoFar, trCursor);
-            if (turingMachineRunnerRecursive(getHead(trCursor), tapeToForward) == ACCEPTED){
+            if (turingMachineRunnerRecursive(getHead(trCursor), tapeToForward, limit) == ACCEPTED){
                 tapeDestroyer(tapeToForward); // Frees memory
                 return ACCEPTED;
             }
@@ -307,6 +318,7 @@ ptrTape newTapeVoid() {
 }
 
 ptrTape newTape(char * line, size_t length) {
+    //printf("Strlen: %zu\n", length);
     ptrTape tape = newTapeVoid();
     tape->line = copyString(line, length);
     tape->length = length;
@@ -335,7 +347,7 @@ void move(ptrTape tape, char move) {
             break;
 
         case RIGHT:
-            if (tape->cursor + 1 >= tape->length)
+            if (tape->cursor - 1 >= tape->length)
                 addBlanksRight(tape);
             tape->cursor++;
             break;
@@ -379,19 +391,19 @@ ptrTape shiftAndFillWithBlanksLeft(ptrTape tape) {
 
 void fillWithBlanksRight(ptrTape tape) {
     int i;
-    for (i = 0; i < tape->length; i++)
+    for (i = (int) tape->length / DOUBLE_FACTOR; i < tape->length; i++)
         tape->line[i] = BLANK;
 }
 
 char * copyString(char * line, size_t length) {
     char * ret = malloc(sizeof(char) * length);
     mallocOK(ret);
-    return strncpy(ret, line, length);
+    return strncpy(ret, line, length - 1);
 }
 
-void setLimit(unsigned int * limit, char * line) {
+void setLimit(int * limit, char * line) {
     nullOK(limit);
-    *limit = (unsigned int) atoi(line);
+    *limit = atoi(line);
 }
 
 void setAcceptance(ptrState list, char * line) {
@@ -504,7 +516,7 @@ enum manager_state nextState (enum manager_state actualState, enum input_state i
 
 char *removeWhiteSpaces (char *input) {
     int i, j;
-    size_t len = strlen (input); // strlen() used here to measure the input
+    size_t len = strlen(input)/*inputLength(input)*/;
     char output[len];
     char *ret;
 
@@ -529,7 +541,7 @@ char *removeWhiteSpaces (char *input) {
 void mallocOK (void *ptr)
 {
     if (ptr == NULL) {
-        printf ("ERROR: memory allocation failed");
+        printf ("ERROR: memory allocation failed\n");
         exit (1);
     }
 }
@@ -537,13 +549,13 @@ void mallocOK (void *ptr)
 void nullOK (void *ptr)
 {
     if (ptr == NULL) {
-        printf ("ERROR: tried to access fields of a NULL pointer");
+        printf ("ERROR: tried to access fields of a NULL pointer\n");
         exit (2);
     }
 }
 
 void badExit () {
-    printf("ERROR: input lead to a wrong state");
+    printf("ERROR: input lead to a wrong state\n");
     exit (3);
 }
 
@@ -682,11 +694,35 @@ ptrTransition getNext (ptrTransition t)
 
 
 
-
-
-
-
 /* TESTS */
+
+size_t inputLength (char * input) {
+    size_t i;
+
+    if (input == NULL)
+        return 0;
+
+    for (i = 0; input[i] != NEWLINE && input[i] != EOL; i++);
+
+    return i;
+}
+
+void showStep(ptrState s, ptrTape tapeSoFar, int *limit) {
+    int i;
+
+    if (s == NULL) {
+        printf("Empty TM");
+        return;
+    }
+
+    printf("State %u\n", getStateNumber(s));
+    printf("%.*s\n", (int) tapeSoFar->length, tapeSoFar->line);
+
+    for (i = 0; i < tapeSoFar->cursor - 1; i++)
+        printf("%c", SPACE);
+    printf("^\n");
+    printf("Steps left: %d\n\n", *limit);
+}
 
 void showTM (ptrState s) {
     ptrTransition t;
