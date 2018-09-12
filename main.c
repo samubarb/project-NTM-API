@@ -224,6 +224,8 @@ char turingMachineRunner(ptrState s, char *line, int limit) {
 char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar, int *limit) {
     ptrTransition trCursor;
     ptrTape tapeToForward = NULL;
+    int testCounter = 0;
+    char result;
 
     if (*limit <= 0)
         return UNDEFINED;
@@ -231,7 +233,7 @@ char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar, int *limit) {
     if (s == NULL) // A void TM always accepts
         return NOT_ACCEPTED;
 
-    showStep(s, tapeSoFar, limit); // For testing
+    //showStep(s, tapeSoFar, limit); // For testing
 
     if (isAcceptanceState(s) == TRUE)
         return ACCEPTED;
@@ -246,11 +248,14 @@ char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar, int *limit) {
     while (trCursor != NULL) {
 
         if (getRead(trCursor) == read(tapeSoFar)) {
+            //testCounter++;
+            // printf("Try number %d\n", testCounter); // For testing
             (*limit)--;
             tapeToForward = applyAction(tapeSoFar, trCursor);
-            if (turingMachineRunnerRecursive(getHead(trCursor), tapeToForward, limit) == ACCEPTED){
+            result = turingMachineRunnerRecursive(getHead(trCursor), tapeToForward, limit);
+            if (result == ACCEPTED || result == UNDEFINED){
                 tapeDestroyer(tapeToForward); // Frees memory
-                return ACCEPTED;
+                return result;
             }
         }
         trCursor = getNext(trCursor);
@@ -347,9 +352,9 @@ void move(ptrTape tape, char move) {
             break;
 
         case RIGHT:
-            if (tape->cursor - 1 >= tape->length)
+            if (tape->cursor >= tape->length - 1)
                 addBlanksRight(tape);
-            tape->cursor++;
+            tape->cursor ++;
             break;
 
         case LEFT:
@@ -398,7 +403,7 @@ void fillWithBlanksRight(ptrTape tape) {
 char * copyString(char * line, size_t length) {
     char * ret = malloc(sizeof(char) * length);
     mallocOK(ret);
-    return strncpy(ret, line, length - 1);
+    return strncpy(ret, line, length);
 }
 
 void setLimit(int * limit, char * line) {
@@ -684,11 +689,13 @@ char getMove (ptrTransition t)
 
 ptrState getHead (ptrTransition t)
 {
+    nullOK(t);
     return t->head;
 }
 
 ptrTransition getNext (ptrTransition t)
 {
+    nullOK(t);
     return t->next;
 }
 
