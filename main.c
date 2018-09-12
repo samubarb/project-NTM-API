@@ -29,12 +29,6 @@
 #define MAX_LINE_SIZE 160
 #define DOUBLE_FACTOR 2
 
-#define TAIL_POSITION 0
-#define READ_POSITION 1
-#define WRITE_POSITION 2
-#define MOVE_POSITION 3
-#define HEAD_POSITION 4
-
 #define BEGINNING 0
 
 #define NEWLINE '\n'
@@ -44,8 +38,6 @@
 #define ACCEPTED '1'
 #define NOT_ACCEPTED '0'
 #define UNDEFINED 'U'
-
-#define CHAR_TO_INT_OFFSET '0'
 
 
 /* STRUCTS & TYPEDEFS */
@@ -111,7 +103,7 @@ void setAcceptance(ptrState list, char * line);
 unsigned int isAcceptanceState(ptrState state);
 void setLimit(int * limit, char * line);
 char turingMachineRunner(ptrState s, char *line, int limit);
-char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar, int *limit);
+char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar, int limit);
 char *copyString(char * line, size_t length);
 char read(ptrTape tape);
 void write(ptrTape tape, char write);
@@ -124,6 +116,12 @@ ptrTape cloneTape(ptrTape tape);
 ptrTape shiftAndFillWithBlanksLeft(ptrTape tape);
 ptrTape addBlanksRight(ptrTape tape);
 ptrTape addBlanksLeft(ptrTape tape);
+unsigned int isNumber(char input);
+unsigned int extractTail(char * line);
+unsigned int extractHead(char * line);
+char extractRead(char * line);
+char extractWrite(char * line);
+char extractMove(char * line);
 
 // MEMORY CLEANING
 ptrTransition killChildren(ptrTransition child);
@@ -137,7 +135,7 @@ size_t inputLength (char * input);
 void inputManagerTest (enum manager_state state, enum input_state input);
 void removeSpacesTest (char *line);
 void showTM (ptrState s);
-void showStep(ptrState s, ptrTape tapeSoFar, int *limit);
+void showStep(ptrState s, ptrTape tapeSoFar, int limit);
 void badExit();
 void goodExit();
 
@@ -173,6 +171,7 @@ int main (int argc, char *argv[])
                 break;
 
             case Acceptance_state:
+                showTM(stateList);
                 if (inputState == Data)
                     setAcceptance(stateList, line);
                 break;
@@ -208,7 +207,6 @@ int main (int argc, char *argv[])
         inputFSM = nextState (inputFSM, inputState);
     }
 
-    //showTM(stateList);
     //printf("Max moves limit: %d\n", limit);
 }
 
@@ -218,16 +216,16 @@ int main (int argc, char *argv[])
 
 char turingMachineRunner(ptrState s, char *line, int limit) {
     ptrTape tape = newTape(line, inputLength(line));
-    return turingMachineRunnerRecursive(s, tape, &limit);
+    return turingMachineRunnerRecursive(s, tape, limit);
 }
 
-char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar, int *limit) {
+char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar, int limit) {
     ptrTransition trCursor;
     ptrTape tapeToForward = NULL;
     int testCounter = 0;
     char result;
 
-    if (*limit <= 0)
+    if (limit <= 0)
         return UNDEFINED;
 
     if (s == NULL) // A void TM always accepts
@@ -250,7 +248,7 @@ char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar, int *limit) {
         if (getRead(trCursor) == read(tapeSoFar)) {
             //testCounter++;
             // printf("Try number %d\n", testCounter); // For testing
-            (*limit)--;
+            limit--;
             tapeToForward = applyAction(tapeSoFar, trCursor);
             result = turingMachineRunnerRecursive(getHead(trCursor), tapeToForward, limit);
             if (result == ACCEPTED || result == UNDEFINED){
@@ -418,6 +416,8 @@ void setAcceptance(ptrState list, char * line) {
 
 void setAcceptanceState(ptrState stateList, unsigned int state_number) {
     ptrState accState = getStatePtr(stateList, state_number);
+    if (accState == NULL)
+        printf("ZIO1\n");
     nullOK(accState);
     accState->acceptance = TRUE;
 }
@@ -427,15 +427,84 @@ unsigned int isAcceptanceState(ptrState state) {
     return state->acceptance;
 }
 
-ptrState turingMachineBuilder(ptrState stateList, char * cleanLine) {
-    char tailChar = cleanLine[TAIL_POSITION];
-    char headChar = cleanLine[HEAD_POSITION];
-    char read = cleanLine[READ_POSITION];
-    char write = cleanLine[WRITE_POSITION];
-    char move = cleanLine[MOVE_POSITION];
+unsigned int extractTail(char * line) {
+    size_t i;
+    char * tail;
+    unsigned int ret;
 
-    unsigned int tail = (unsigned int) tailChar - CHAR_TO_INT_OFFSET;
-    unsigned int head = (unsigned int) headChar - CHAR_TO_INT_OFFSET;
+    for (i = 0; isNumber(line[i]) == TRUE; i++);
+    tail = copyString(line, i);
+    ret = (unsigned int) atoi(tail);
+    free(tail);
+    return ret;
+}
+
+unsigned int extractHead(char * line) {
+    size_t i;
+    char * head;
+    unsigned int ret;
+
+    for (i = inputLength(line); isNumber(line[i - 1]) == TRUE; i--);
+    head = copyString(line + i, inputLength(line) - i);
+    ret = (unsigned int) atoi(head);
+    free(head);
+    return ret;
+}
+
+char extractRead(char * line) {
+    size_t i = 0;
+    while (isNumber(line[i]) == TRUE || line[i] == SPACE)
+        i++;
+
+    return line[i];
+}
+
+char extractWrite(char * line) {
+    size_t i = 0;
+    while (isNumber(line[i]) == TRUE || line[i] == SPACE)
+        i++;
+
+    i++;
+
+    while (isNumber(line[i]) == TRUE || line[i] == SPACE)
+        i++;
+
+    return line[i];
+}
+
+char extractMove(char * line) {
+    size_t i = 0;
+    while (isNumber(line[i]) == TRUE || line[i] == SPACE)
+        i++;
+
+    i++;
+
+    while (isNumber(line[i]) == TRUE || line[i] == SPACE)
+        i++;
+
+    i++;
+
+    while (isNumber(line[i]) == TRUE || line[i] == SPACE)
+        i++;
+
+    return line[i];
+}
+
+unsigned int isNumber(char input) {
+    if (input >= '0' && input <= '9')
+        return TRUE;
+    return FALSE;
+}
+
+ptrState turingMachineBuilder(ptrState stateList, char * cleanLine) {
+    unsigned int tail = extractTail(cleanLine);
+    unsigned int head = extractHead(cleanLine);
+    char read = extractRead(cleanLine);
+    char write = extractWrite(cleanLine);
+    char move = extractMove(cleanLine);
+
+    //unsigned int tail = (unsigned int) tailChar - CHAR_TO_INT_OFFSET;
+    //unsigned int head = (unsigned int) headChar - CHAR_TO_INT_OFFSET;
 
     ptrState tailState = getStatePtr(stateList, tail);
     ptrState headState = getStatePtr(stateList, head);
@@ -714,7 +783,7 @@ size_t inputLength (char * input) {
     return i;
 }
 
-void showStep(ptrState s, ptrTape tapeSoFar, int *limit) {
+void showStep(ptrState s, ptrTape tapeSoFar, int limit) {
     int i;
 
     if (s == NULL) {
@@ -728,7 +797,7 @@ void showStep(ptrState s, ptrTape tapeSoFar, int *limit) {
     for (i = 0; i < tapeSoFar->cursor - 1; i++)
         printf("%c", SPACE);
     printf("^\n");
-    printf("Steps left: %d\n\n", *limit);
+    printf("Steps left: %d\n\n", limit);
 }
 
 void showTM (ptrState s) {
