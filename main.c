@@ -111,7 +111,10 @@ void move(ptrTape tape, char move);
 void fillWithBlanksRight(ptrTape tape);
 ptrTape newTapeVoid();
 ptrTape newTape(char * line, size_t length);
-ptrTape applyAction(ptrTape tapeSoFar, ptrTransition transition);
+ptrTape applyAction(ptrTape tape, ptrTransition transition);
+ptrTape revertAction(ptrTape tape, ptrTransition transition);
+void moveBack(ptrTape tape, char move);
+void writeBack(ptrTape tape, char write);
 ptrTape cloneTape(ptrTape tape);
 ptrTape shiftAndFillWithBlanksLeft(ptrTape tape);
 ptrTape addBlanksRight(ptrTape tape);
@@ -171,14 +174,17 @@ int main (int argc, char *argv[])
                 break;
 
             case Acceptance_state:
-                showTM(stateList);
-                if (inputState == Data)
+                printf("check acceptance!\n");
+                if (inputState == Data) {
                     setAcceptance(stateList, line);
+                }
                 break;
 
             case Limit:
+                printf("check limit!\n");
                 if (inputState == Data)
-                    setLimit(&limit, line);
+                    showTM(stateList);
+                setLimit(&limit, line);
                 break;
 
             case Steady:
@@ -187,6 +193,7 @@ int main (int argc, char *argv[])
                 break;
 
             case Running:
+                printf("check steady!\n");
                 if (inputState == Data) {
                     output = turingMachineRunner(stateList, line, limit);
                     printf("%c\n", output);
@@ -215,50 +222,51 @@ int main (int argc, char *argv[])
 /* FUNCTIONS & PROCEDURES */
 
 char turingMachineRunner(ptrState s, char *line, int limit) {
+    char ret;
     ptrTape tape = newTape(line, inputLength(line));
-    return turingMachineRunnerRecursive(s, tape, limit);
+    ret = turingMachineRunnerRecursive(s, tape, limit);
+    tapeDestroyer(tape); // Frees memory
+    return ret;
 }
 
-char turingMachineRunnerRecursive(ptrState s, ptrTape tapeSoFar, int limit) {
-    ptrTransition trCursor;
-    ptrTape tapeToForward = NULL;
+char turingMachineRunnerRecursive(ptrState s, ptrTape tape, int limit) {
+    ptrTransition transition;
+    //ptrTape tapeToForward = NULL;
     int testCounter = 0;
     char result;
 
-    if (limit <= 0)
+    if (limit <= 0) {
         return UNDEFINED;
+    }
 
-    if (s == NULL) // A void TM always accepts
+    if (s == NULL) // ???? or ACCEPT ????
         return NOT_ACCEPTED;
 
     //showStep(s, tapeSoFar, limit); // For testing
 
-    if (isAcceptanceState(s) == TRUE)
+    if (isAcceptanceState(s) == TRUE) {
         return ACCEPTED;
-
-    // CONTROLLA SE I TAPE DESTROYER HANNO SENSO DOVE SONO MESSI
+    }
 
     if (hasTransitions(s) == FALSE)
         return NOT_ACCEPTED;
 
-    trCursor = s->children_list;
+    transition = s->children_list;
 
-    while (trCursor != NULL) {
+    while (transition != NULL) {
 
-        if (getRead(trCursor) == read(tapeSoFar)) {
+        if (getRead(transition) == read(tape)) {
             //testCounter++;
             // printf("Try number %d\n", testCounter); // For testing
             limit--;
-            tapeToForward = applyAction(tapeSoFar, trCursor);
-            result = turingMachineRunnerRecursive(getHead(trCursor), tapeToForward, limit);
-            if (result == ACCEPTED || result == UNDEFINED){
-                tapeDestroyer(tapeToForward); // Frees memory
+            tape = applyAction(tape, transition);
+            result = turingMachineRunnerRecursive(getHead(transition), tape, limit);
+            if (result == ACCEPTED || result == UNDEFINED)
                 return result;
-            }
+            tape = revertAction(tape, transition);
         }
-        trCursor = getNext(trCursor);
+        transition = getNext(transition);
     }
-    tapeDestroyer(tapeToForward); // Frees memory
     return NOT_ACCEPTED;
 }
 
@@ -280,12 +288,30 @@ ptrTransition killChildren(ptrTransition child) {
     return NULL;
 }
 
+ptrTape applyAction(ptrTape tape, ptrTransition transition) {
+    //ptrTape ret = cloneTape(tape);
+    write(tape, getWrite(transition));
+    move(tape, getMove(transition));
+    return tape;
+}
 
-ptrTape applyAction(ptrTape tapeSoFar, ptrTransition transition) {
-    ptrTape ret = cloneTape(tapeSoFar);
-    write(ret, getWrite(transition));
-    move(ret, getMove(transition));
-    return ret;
+ptrTape revertAction(ptrTape tape, ptrTransition transition) {
+    moveBack(tape, getMove(transition));
+    writeBack(tape, getRead(transition)); // Replace what is read be
+    return tape;
+}
+
+void moveBack(ptrTape tape, char moveToRevert) {
+    if (moveToRevert == RIGHT)
+        move(tape, LEFT);
+    else if (moveToRevert == LEFT)
+        move(tape, RIGHT);
+}
+
+void writeBack(ptrTape tape, char toWriteBack) {
+    nullOK(tape);
+    nullOK(tape->line);
+    tape->line[tape->cursor] = toWriteBack;
 }
 
 ptrTape cloneTape(ptrTape tape) {
@@ -416,8 +442,6 @@ void setAcceptance(ptrState list, char * line) {
 
 void setAcceptanceState(ptrState stateList, unsigned int state_number) {
     ptrState accState = getStatePtr(stateList, state_number);
-    if (accState == NULL)
-        printf("ZIO1\n");
     nullOK(accState);
     accState->acceptance = TRUE;
 }
@@ -502,18 +526,15 @@ ptrState turingMachineBuilder(ptrState stateList, char * cleanLine) {
     char read = extractRead(cleanLine);
     char write = extractWrite(cleanLine);
     char move = extractMove(cleanLine);
+    ptrState tailState, headState;
 
-    //unsigned int tail = (unsigned int) tailChar - CHAR_TO_INT_OFFSET;
-    //unsigned int head = (unsigned int) headChar - CHAR_TO_INT_OFFSET;
-
-    ptrState tailState = getStatePtr(stateList, tail);
-    ptrState headState = getStatePtr(stateList, head);
-
+    tailState = getStatePtr(stateList, tail);
     if (tailState == NULL) {
         tailState = newState(tail);
         stateList = addStateOrdered(stateList, tailState);
     }
 
+    headState = getStatePtr(stateList, head);
     if (headState == NULL) {
         headState = newState(head);
         stateList = addStateOrdered(stateList, headState);
@@ -706,15 +727,18 @@ ptrState addStateOrdered(ptrState list, ptrState state) {
         return list;
     }
 
+    // Insertion in head
     if (getStateNumber(list) > getStateNumber(state)) {
         state->next = list;
         return state;
     }
 
-    if (list->next == NULL) {
-        list->next = state;
-        return list;
-    }
+    // Insertion in 2nd place
+    if (getStateNumber(list) < getStateNumber(state))
+        if (list->next == NULL) {
+            list->next = state;
+            return list;
+        }
 
     head = list;
 
